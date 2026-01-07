@@ -1,13 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <title>Heatmaps</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background: #f7f7f7;
+      }
+      main {
+        max-width: 960px;
+        margin: 40px auto;
+        padding: 24px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 28px;
+      }
+      .map-embed {
+        margin-top: 20px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e0e0e0;
+      }
+      .map-embed iframe {
+        display: block;
+        width: 100%;
+        height: 480px;
+        border: 0;
+      }
+    </style>
   </head>
   <body>
     <main>
-      <h1>Heatmaps</h1>
-      <p>Index page ready.</p>
+      <h1>Mapa interactivo</h1>
+      <p>Explora el área seleccionada directamente desde Google Maps.</p>
+      <div class="map-embed" aria-label="Google Maps incrustado con la vista de Madrid">
+        <iframe
+          title="Mapa de Madrid en Google Maps"
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d24332.912906922925!2d-3.7037907500000004!3d40.4167754!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd422997800000001%3A0x50b62c5b1c3b2c07!2sMadrid%2C%20Spain!5e0!3m2!1sen!2ses!4v1724180000000!5m2!1sen!2ses"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+        ></iframe>
+      </div>
     </main>
   </body>
 </html>
