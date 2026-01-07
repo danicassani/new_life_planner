@@ -28,33 +28,52 @@ class GoogleDirectionsClient:
         mode: str = "transit",
     ) -> Optional[int]:
         if not self.api_key:
-            raise RuntimeError("Missing GOOGLE_MAPS_API_KEY for Google Directions API.")
-        params = {
-            "origin": f"{origin.lat},{origin.lng}",
-            "destination": f"{destination.lat},{destination.lng}",
-            "mode": mode,
-            "key": self.api_key,
-        }
+            raise RuntimeError("Missing GOOGLE_MAPS_API_KEY for Google Routes API.")
         if mode == "transit" and not departure_time:
             departure_time = dt.datetime.now(tz=dt.timezone.utc)
+        payload = {
+            "origin": {"location": {"latLng": {"latitude": origin.lat, "longitude": origin.lng}}},
+            "destination": {
+                "location": {
+                    "latLng": {"latitude": destination.lat, "longitude": destination.lng}
+                }
+            },
+            "travelMode": mode.upper(),
+        }
         if departure_time:
-            params["departure_time"] = int(departure_time.timestamp())
-        response = requests.get(
-            "https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=20
+            payload["departureTime"] = departure_time.isoformat()
+        response = requests.post(
+            "https://routes.googleapis.com/directions/v2:computeRoutes",
+            headers={
+                "X-Goog-Api-Key": self.api_key,
+                "X-Goog-FieldMask": "routes.duration",
+            },
+            json=payload,
+            timeout=20,
         )
         response.raise_for_status()
-        payload = response.json()
-        if payload.get("status") != "OK":
+        data = response.json()
+        if "routes" not in data or not data["routes"]:
             print(
-                "Google Directions error for "
+                "Google Routes error for "
                 f"({origin.lat}, {origin.lng}) -> ({destination.lat}, {destination.lng}): "
-                f"{payload.get('status')} - {payload.get('error_message')}"
+                f"{data.get('error', {}).get('message', 'No routes returned')}"
             )
             return None
         try:
-            return payload["routes"][0]["legs"][0]["duration"]["value"]
+            return _parse_duration_seconds(data["routes"][0]["duration"])
         except (KeyError, IndexError, TypeError):
             return None
+
+
+def _parse_duration_seconds(duration_value: str) -> Optional[int]:
+    if not duration_value:
+        return None
+    if isinstance(duration_value, str) and duration_value.endswith("s"):
+        return int(float(duration_value[:-1]))
+    if isinstance(duration_value, (int, float)):
+        return int(duration_value)
+    return None
 
 
 class GridGenerator:
