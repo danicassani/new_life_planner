@@ -81,7 +81,7 @@ class ScenarioRunView(APIView):
                 update_fields=["status", "finished_at", "error_message"]
             )
             return Response(
-                {"detail": "Error while computing heatmap."},
+                {"detail": "Error while computing heatmap.", "error": str(exc)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

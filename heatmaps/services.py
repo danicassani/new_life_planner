@@ -28,20 +28,28 @@ class GoogleDirectionsClient:
         mode: str = "transit",
     ) -> Optional[int]:
         if not self.api_key:
-            return None
+            raise RuntimeError("Missing GOOGLE_MAPS_API_KEY for Google Directions API.")
         params = {
             "origin": f"{origin.lat},{origin.lng}",
             "destination": f"{destination.lat},{destination.lng}",
             "mode": mode,
             "key": self.api_key,
         }
+        if mode == "transit" and not departure_time:
+            departure_time = dt.datetime.now(tz=dt.timezone.utc)
         if departure_time:
             params["departure_time"] = int(departure_time.timestamp())
         response = requests.get(
             "https://maps.googleapis.com/maps/api/directions/json", params=params, timeout=20
         )
+        response.raise_for_status()
         payload = response.json()
         if payload.get("status") != "OK":
+            print(
+                "Google Directions error for "
+                f"({origin.lat}, {origin.lng}) -> ({destination.lat}, {destination.lng}): "
+                f"{payload.get('status')} - {payload.get('error_message')}"
+            )
             return None
         try:
             return payload["routes"][0]["legs"][0]["duration"]["value"]
