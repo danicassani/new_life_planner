@@ -355,7 +355,16 @@
           headers: { "X-CSRFToken": getCookie("csrftoken") },
         });
         if (!runResponse.ok) {
-          setStatus("Error ejecutando cálculo.");
+          let errorMessage = "Error ejecutando cálculo.";
+          try {
+            const errorPayload = await runResponse.json();
+            if (errorPayload.error) {
+              errorMessage = `Error ejecutando cálculo: ${errorPayload.error}`;
+            }
+          } catch (err) {
+            console.error("Error parsing run response", err);
+          }
+          setStatus(errorMessage);
           return;
         }
         await fetchResults(scenario.id);
