@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import os
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
@@ -8,6 +9,8 @@ from pyproj import Transformer
 from shapely.geometry import Point, shape
 
 from heatmaps.models import Scenario, TargetPoint
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -119,6 +122,12 @@ def compute_times(
             client.get_transit_duration_seconds(cell, target, departure_time, mode)
             for target in targets_list
         ]
+        logger.info(
+            "Computed durations for cell (%s, %s): %s",
+            cell.lat,
+            cell.lng,
+            durations,
+        )
         time_minutes = aggregate_durations(durations, targets_list, metric)
         results.append(
             {
