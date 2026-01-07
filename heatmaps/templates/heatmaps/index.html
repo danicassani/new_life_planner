@@ -375,13 +375,16 @@
       function renderCells(features) {
         STATE.heatmapOverlay.forEach((circle) => circle.setMap(null));
         STATE.heatmapOverlay = [];
+        if (!features || features.length === 0) {
+          setStatus("Heatmap listo, pero no hay celdas para dibujar.");
+          return;
+        }
+        let painted = 0;
         features.forEach((feature) => {
           const minutes = feature.properties.time_minutes;
-          if (minutes === null || minutes === undefined) {
-            return;
-          }
-          const color =
-            minutes <= 15
+          const hasTime = minutes !== null && minutes !== undefined;
+          const color = hasTime
+            ? minutes <= 15
               ? "#0b4bff"
               : minutes <= 30
                 ? "#5a7dff"
@@ -389,13 +392,14 @@
                   ? "#f2b500"
                   : minutes <= 60
                     ? "#f26b00"
-                    : "#d7263d";
+                    : "#d7263d"
+            : "#9aa0a6";
           const circle = new google.maps.Circle({
             strokeColor: color,
-            strokeOpacity: 0.7,
+            strokeOpacity: hasTime ? 0.7 : 0.4,
             strokeWeight: 1,
             fillColor: color,
-            fillOpacity: 0.3,
+            fillOpacity: hasTime ? 0.3 : 0.15,
             map: STATE.map,
             center: {
               lat: feature.geometry.coordinates[1],
@@ -404,7 +408,13 @@
             radius: parseInt(document.getElementById("grid-resolution").value, 10) * 0.45,
           });
           STATE.heatmapOverlay.push(circle);
+          if (hasTime) {
+            painted += 1;
+          }
         });
+        if (painted === 0) {
+          setStatus("Heatmap listo, pero sin tiempos disponibles (revisa API key).");
+        }
       }
 
       document.getElementById("draw-polygon").addEventListener("click", startDrawingPolygon);
