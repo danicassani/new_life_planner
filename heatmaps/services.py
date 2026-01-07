@@ -47,11 +47,22 @@ class GoogleDirectionsClient:
             headers={
                 "X-Goog-Api-Key": self.api_key,
                 "X-Goog-FieldMask": "routes.duration",
+                "Content-Type": "application/json",
             },
             json=payload,
             timeout=20,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            print(
+                "Google Routes HTTP error for "
+                f"({origin.lat}, {origin.lng}) -> ({destination.lat}, {destination.lng}): "
+                f"{response.status_code} - {response.text}"
+            )
+            raise RuntimeError(
+                f"Google Routes HTTP error {response.status_code}: {response.text}"
+            ) from exc
         data = response.json()
         if "routes" not in data or not data["routes"]:
             print(
