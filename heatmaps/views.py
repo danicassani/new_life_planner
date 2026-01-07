@@ -37,6 +37,7 @@ class ScenarioDetailView(APIView):
 class ScenarioRunView(APIView):
     def post(self, request, scenario_id):
         scenario = get_object_or_404(Scenario, pk=scenario_id)
+        print(f"Starting heatmap computation for scenario {scenario.id}")
         computation = scenario.computation
         computation.status = ComputationResult.STATUS_RUNNING
         computation.started_at = timezone.now()
@@ -47,6 +48,10 @@ class ScenarioRunView(APIView):
             grid = GridGenerator().generate_grid(
                 scenario.polygon_geojson, scenario.grid_resolution_m
             )
+            print(
+                f"Generated {len(grid)} grid cells for scenario {scenario.id} "
+                f"with resolution {scenario.grid_resolution_m}m"
+            )
             results = compute_times(
                 grid,
                 scenario.targets.all(),
@@ -54,6 +59,7 @@ class ScenarioRunView(APIView):
                 scenario.metric,
                 scenario.mode,
             )
+            print(f"Computed {len(results)} results for scenario {scenario.id}")
             CellResult.objects.filter(scenario=scenario).delete()
             CellResult.objects.bulk_create(
                 [
