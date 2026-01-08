@@ -170,11 +170,15 @@
           </div>
           <div class="field">
             <label for="grid-resolution">Resolución grid</label>
-            <select id="grid-resolution">
-              <option value="300">300 m</option>
-              <option value="500" selected>500 m</option>
-              <option value="1000">1 km</option>
-            </select>
+            <input
+              id="grid-resolution"
+              type="range"
+              min="0.5"
+              max="5"
+              step="0.5"
+              value="0.5"
+            />
+            <span id="grid-resolution-value">0.5 km</span>
           </div>
           <div class="actions">
             <button class="secondary" id="draw-polygon">Dibujar zona</button>
@@ -213,6 +217,8 @@
       const STATUS = document.getElementById("status");
       const targetList = document.getElementById("target-list");
       const runButton = document.getElementById("run-heatmap");
+      const gridResolutionInput = document.getElementById("grid-resolution");
+      const gridResolutionValue = document.getElementById("grid-resolution-value");
 
       function setStatus(message) {
         STATUS.textContent = `Estado: ${message}`;
@@ -235,6 +241,15 @@
         runButton.disabled = !(STATE.polygon && STATE.targets.length > 0);
       }
 
+      function updateGridResolutionLabel() {
+        const valueKm = parseFloat(gridResolutionInput.value);
+        gridResolutionValue.textContent = `${valueKm.toFixed(1)} km`;
+      }
+
+      function getGridResolutionM() {
+        return Math.round(parseFloat(gridResolutionInput.value) * 1000);
+      }
+
       function initMap() {
         const map = new google.maps.Map(document.getElementById("map"), {
           center: { lat: 40.4168, lng: -3.7038 },
@@ -248,7 +263,7 @@
           drawingControl: false,
           polygonOptions: {
             fillColor: "#1f57f1",
-            fillOpacity: 0.1,
+            fillOpacity: 0.2,
             strokeColor: "#1f57f1",
             strokeWeight: 2,
             clickable: false,
@@ -336,7 +351,7 @@
           targets: STATE.targets,
           metric: document.getElementById("metric").value,
           departure_time: document.getElementById("departure-time").value || null,
-          grid_resolution_m: parseInt(document.getElementById("grid-resolution").value, 10),
+          grid_resolution_m: getGridResolutionM(),
           mode: "transit",
         };
 
@@ -418,7 +433,7 @@
               lat: feature.geometry.coordinates[1],
               lng: feature.geometry.coordinates[0],
             },
-            radius: parseInt(document.getElementById("grid-resolution").value, 10) * 0.45,
+            radius: getGridResolutionM() * 0.45,
           });
           STATE.heatmapOverlay.push(circle);
           if (hasTime) {
@@ -433,7 +448,9 @@
       document.getElementById("draw-polygon").addEventListener("click", startDrawingPolygon);
       document.getElementById("add-target").addEventListener("click", addTargetMode);
       document.getElementById("run-heatmap").addEventListener("click", runHeatmap);
+      gridResolutionInput.addEventListener("input", updateGridResolutionLabel);
 
+      updateGridResolutionLabel();
       window.initMap = initMap;
     </script>
     <script
