@@ -173,12 +173,12 @@
             <input
               id="grid-resolution"
               type="range"
-              min="0.5"
-              max="5"
-              step="0.5"
-              value="0.5"
+              min="0.25"
+              max="3"
+              step="0.25"
+              value="0.25"
             />
-            <span id="grid-resolution-value">0.5 km</span>
+            <span id="grid-resolution-value">0.25 km</span>
           </div>
           <div class="actions">
             <button class="secondary" id="draw-polygon">Dibujar zona</button>
@@ -243,7 +243,13 @@
 
       function updateGridResolutionLabel() {
         const valueKm = parseFloat(gridResolutionInput.value);
-        gridResolutionValue.textContent = `${valueKm.toFixed(1)} km`;
+        let formattedValue = valueKm.toFixed(2);
+        if (formattedValue.endsWith("00")) {
+          formattedValue = valueKm.toFixed(0);
+        } else if (formattedValue.endsWith("0")) {
+          formattedValue = valueKm.toFixed(1);
+        }
+        gridResolutionValue.textContent = `${formattedValue} km`;
       }
 
       function getGridResolutionM() {
