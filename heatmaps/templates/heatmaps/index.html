@@ -4,50 +4,438 @@
     <meta charset="UTF-8" />
     <title>Heatmaps</title>
     <style>
+      :root {
+        color-scheme: light;
+      }
       body {
         margin: 0;
         font-family: "Helvetica Neue", Arial, sans-serif;
         background: #f7f7f7;
+        color: #1f1f1f;
       }
       main {
-        max-width: 960px;
-        margin: 40px auto;
+        max-width: 1100px;
+        margin: 32px auto;
         padding: 24px;
         background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
       }
       h1 {
         margin-top: 0;
         font-size: 28px;
       }
-      .map-embed {
-        margin-top: 20px;
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+        gap: 24px;
+      }
+      .panel {
+        background: #fdfdfd;
+        border: 1px solid #ececec;
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .panel h2 {
+        font-size: 18px;
+        margin-top: 0;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #5b5b5b;
+      }
+      input,
+      select,
+      button,
+      textarea {
+        font-size: 14px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid #d9d9d9;
+      }
+      button {
+        cursor: pointer;
+        background: #1f57f1;
+        color: #fff;
+        border: none;
+        font-weight: 600;
+      }
+      button.secondary {
+        background: #e9efff;
+        color: #1f57f1;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .actions {
+        display: grid;
+        gap: 8px;
+      }
+      .target-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+      }
+      .map-wrapper {
+        min-height: 540px;
         border-radius: 12px;
         overflow: hidden;
         border: 1px solid #e0e0e0;
       }
-      .map-embed iframe {
-        display: block;
+      .map {
         width: 100%;
-        height: 480px;
-        border: 0;
+        height: 100%;
+      }
+      .status {
+        font-size: 13px;
+        color: #3f3f3f;
+        background: #f2f5ff;
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .legend {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+        font-size: 12px;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .legend i {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .warning {
+        background: #fff5e6;
+        border: 1px solid #ffd7a8;
+        color: #8a4b00;
+        padding: 10px;
+        border-radius: 10px;
+        font-size: 13px;
+      }
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Mapa interactivo</h1>
-      <p>Explora el área seleccionada directamente desde Google Maps.</p>
-      <div class="map-embed" aria-label="Google Maps incrustado con la vista de Madrid">
-        <iframe
-          title="Mapa de Madrid en Google Maps"
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d24332.912906922925!2d-3.7037907500000004!3d40.4167754!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd422997800000001%3A0x50b62c5b1c3b2c07!2sMadrid%2C%20Spain!5e0!3m2!1sen!2ses!4v1724180000000!5m2!1sen!2ses"
-          loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade"
-          allowfullscreen
-        ></iframe>
+      <h1>Heatmap de tiempos en transporte público</h1>
+      <p>
+        Dibuja un polígono, añade puntos objetivo y calcula tiempos aproximados en
+        transporte público para generar un mapa de calor por celdas.
+      </p>
+      {% if not google_maps_api_key %}
+      <p class="warning">
+        Añade la variable de entorno <strong>GOOGLE_MAPS_API_KEY</strong> para cargar el mapa.
+      </p>
+      {% endif %}
+      <div class="layout">
+        <section class="panel">
+          <h2>Escenario</h2>
+          <div class="field">
+            <label for="scenario-name">Nombre</label>
+            <input id="scenario-name" placeholder="Zona oficina" />
+          </div>
+          <div class="field">
+            <label>Métrica</label>
+            <select id="metric">
+              <option value="MIN">Mínimo (target más cercano)</option>
+              <option value="AVG">Media</option>
+              <option value="WEIGHTED_AVG">Media ponderada</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="departure-time">Fecha / hora</label>
+            <input id="departure-time" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="grid-resolution">Resolución grid</label>
+            <select id="grid-resolution">
+              <option value="300">300 m</option>
+              <option value="500" selected>500 m</option>
+              <option value="1000">1 km</option>
+            </select>
+          </div>
+          <div class="actions">
+            <button class="secondary" id="draw-polygon">Dibujar zona</button>
+            <button class="secondary" id="add-target">Añadir punto objetivo</button>
+            <button id="run-heatmap" disabled>Calcular heatmap</button>
+          </div>
+          <h2 style="margin-top: 24px">Targets</h2>
+          <ul class="target-list" id="target-list">
+            <li>No hay puntos todavía.</li>
+          </ul>
+          <div class="status" id="status">Estado: esperando acciones.</div>
+          <div class="legend">
+            <strong>Leyenda</strong>
+            <span><i style="background:#0b4bff"></i>0–15 min</span>
+            <span><i style="background:#5a7dff"></i>15–30 min</span>
+            <span><i style="background:#f2b500"></i>30–45 min</span>
+            <span><i style="background:#f26b00"></i>45–60 min</span>
+            <span><i style="background:#d7263d"></i>60+ min</span>
+          </div>
+        </section>
+        <section class="map-wrapper">
+          <div id="map" class="map" aria-label="Mapa interactivo"></div>
+        </section>
       </div>
     </main>
+    <script>
+      const STATE = {
+        polygon: null,
+        targets: [],
+        targetMarkers: [],
+        drawingManager: null,
+        map: null,
+        heatmapOverlay: [],
+      };
+
+      const STATUS = document.getElementById("status");
+      const targetList = document.getElementById("target-list");
+      const runButton = document.getElementById("run-heatmap");
+
+      function setStatus(message) {
+        STATUS.textContent = `Estado: ${message}`;
+      }
+
+      function updateTargetList() {
+        targetList.innerHTML = "";
+        if (STATE.targets.length === 0) {
+          targetList.innerHTML = "<li>No hay puntos todavía.</li>";
+          return;
+        }
+        STATE.targets.forEach((target, index) => {
+          const item = document.createElement("li");
+          item.textContent = `${index + 1}. ${target.name} (${target.lat.toFixed(4)}, ${target.lng.toFixed(4)})`;
+          targetList.appendChild(item);
+        });
+      }
+
+      function enableRunIfReady() {
+        runButton.disabled = !(STATE.polygon && STATE.targets.length > 0);
+      }
+
+      function initMap() {
+        const map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 40.4168, lng: -3.7038 },
+          zoom: 12,
+          mapTypeControl: false,
+        });
+        STATE.map = map;
+
+        STATE.drawingManager = new google.maps.drawing.DrawingManager({
+          drawingMode: null,
+          drawingControl: false,
+          polygonOptions: {
+            fillColor: "#1f57f1",
+            fillOpacity: 0.1,
+            strokeColor: "#1f57f1",
+            strokeWeight: 2,
+            clickable: false,
+            editable: true,
+          },
+        });
+        STATE.drawingManager.setMap(map);
+
+        google.maps.event.addListener(STATE.drawingManager, "polygoncomplete", (polygon) => {
+          if (STATE.polygon) {
+            STATE.polygon.setMap(null);
+          }
+          STATE.polygon = polygon;
+          setStatus("Polígono dibujado.");
+          enableRunIfReady();
+        });
+      }
+
+      function startDrawingPolygon() {
+        if (!STATE.drawingManager) return;
+        STATE.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+        setStatus("Dibuja el polígono en el mapa.");
+      }
+
+      function addTargetMode() {
+        setStatus("Haz click en el mapa para añadir un target.");
+        const listener = STATE.map.addListener("click", (event) => {
+          const target = {
+            name: `Target ${STATE.targets.length + 1}`,
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng(),
+            weight: null,
+          };
+          STATE.targets.push(target);
+          const marker = new google.maps.Marker({
+            position: { lat: target.lat, lng: target.lng },
+            map: STATE.map,
+          });
+          STATE.targetMarkers.push(marker);
+          updateTargetList();
+          enableRunIfReady();
+          setStatus("Target añadido.");
+          google.maps.event.removeListener(listener);
+        });
+      }
+
+      function polygonToGeoJSON(polygon) {
+        const path = polygon.getPath().getArray();
+        const coords = path.map((latLng) => [latLng.lng(), latLng.lat()]);
+        coords.push(coords[0]);
+        return {
+          type: "Polygon",
+          coordinates: [coords],
+        };
+      }
+
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          const cookies = document.cookie.split(";");
+          for (let cookie of cookies) {
+            const trimmed = cookie.trim();
+            if (trimmed.startsWith(name + "=")) {
+              cookieValue = decodeURIComponent(trimmed.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      async function runHeatmap() {
+        if (!STATE.polygon) {
+          setStatus("Necesitas un polígono antes de calcular.");
+          return;
+        }
+        setStatus("Guardando escenario...");
+        const payload = {
+          name: document.getElementById("scenario-name").value || "Escenario sin nombre",
+          polygon_geojson: polygonToGeoJSON(STATE.polygon),
+          targets: STATE.targets,
+          metric: document.getElementById("metric").value,
+          departure_time: document.getElementById("departure-time").value || null,
+          grid_resolution_m: parseInt(document.getElementById("grid-resolution").value, 10),
+          mode: "transit",
+        };
+
+        const response = await fetch("/api/scenarios/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken"),
+          },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          setStatus("Error guardando escenario.");
+          return;
+        }
+        const scenario = await response.json();
+        setStatus("Calculando heatmap (puede tardar)...");
+        const runResponse = await fetch(`/api/scenarios/${scenario.id}/run/`, {
+          method: "POST",
+          headers: { "X-CSRFToken": getCookie("csrftoken") },
+        });
+        if (!runResponse.ok) {
+          let errorMessage = "Error ejecutando cálculo.";
+          try {
+            const errorPayload = await runResponse.json();
+            if (errorPayload.error) {
+              errorMessage = `Error ejecutando cálculo: ${errorPayload.error}`;
+            }
+          } catch (err) {
+            console.error("Error parsing run response", err);
+          }
+          setStatus(errorMessage);
+          return;
+        }
+        await fetchResults(scenario.id);
+      }
+
+      async function fetchResults(id) {
+        const response = await fetch(`/api/scenarios/${id}/results/`);
+        if (!response.ok) {
+          setStatus("Error recuperando resultados.");
+          return;
+        }
+        const data = await response.json();
+        renderCells(data.features);
+        setStatus("Heatmap listo.");
+      }
+
+      function renderCells(features) {
+        STATE.heatmapOverlay.forEach((circle) => circle.setMap(null));
+        STATE.heatmapOverlay = [];
+        if (!features || features.length === 0) {
+          setStatus("Heatmap listo, pero no hay celdas para dibujar.");
+          return;
+        }
+        let painted = 0;
+        features.forEach((feature) => {
+          const minutes = feature.properties.time_minutes;
+          const hasTime = minutes !== null && minutes !== undefined;
+          const color = hasTime
+            ? minutes <= 15
+              ? "#0b4bff"
+              : minutes <= 30
+                ? "#5a7dff"
+                : minutes <= 45
+                  ? "#f2b500"
+                  : minutes <= 60
+                    ? "#f26b00"
+                    : "#d7263d"
+            : "#9aa0a6";
+          const circle = new google.maps.Circle({
+            strokeColor: color,
+            strokeOpacity: hasTime ? 0.7 : 0.4,
+            strokeWeight: 1,
+            fillColor: color,
+            fillOpacity: hasTime ? 0.3 : 0.15,
+            map: STATE.map,
+            center: {
+              lat: feature.geometry.coordinates[1],
+              lng: feature.geometry.coordinates[0],
+            },
+            radius: parseInt(document.getElementById("grid-resolution").value, 10) * 0.45,
+          });
+          STATE.heatmapOverlay.push(circle);
+          if (hasTime) {
+            painted += 1;
+          }
+        });
+        if (painted === 0) {
+          setStatus("Heatmap listo, pero sin tiempos disponibles (revisa API key).");
+        }
+      }
+
+      document.getElementById("draw-polygon").addEventListener("click", startDrawingPolygon);
+      document.getElementById("add-target").addEventListener("click", addTargetMode);
+      document.getElementById("run-heatmap").addEventListener("click", runHeatmap);
+
+      window.initMap = initMap;
+    </script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=drawing&callback=initMap"
+      async
+      defer
+    ></script>
   </body>
 </html>
