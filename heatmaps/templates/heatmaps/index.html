@@ -262,6 +262,7 @@
             STATE.polygon.setMap(null);
           }
           STATE.polygon = polygon;
+          STATE.drawingManager.setDrawingMode(null);
           setStatus("Polígono dibujado.");
           enableRunIfReady();
         });
@@ -274,6 +275,9 @@
       }
 
       function addTargetMode() {
+        if (STATE.drawingManager) {
+          STATE.drawingManager.setDrawingMode(null);
+        }
         setStatus("Haz click en el mapa para añadir un target.");
         const listener = STATE.map.addListener("click", (event) => {
           const target = {
