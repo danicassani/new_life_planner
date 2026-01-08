@@ -122,6 +122,20 @@
         gap: 6px;
         font-size: 13px;
       }
+      .target-item {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 8px;
+      }
+      .target-item span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .weight-input {
+        width: 78px;
+      }
       .map-wrapper {
         min-height: 540px;
         border-radius: 12px;
@@ -246,6 +260,7 @@
         drawingManager: null,
         map: null,
         heatmapOverlay: [],
+        infoWindow: null,
       };
 
       const STATUS = document.getElementById("status");
@@ -266,7 +281,22 @@
         }
         STATE.targets.forEach((target, index) => {
           const item = document.createElement("li");
-          item.textContent = `${index + 1}. ${target.name} (${target.lat.toFixed(4)}, ${target.lng.toFixed(4)})`;
+          item.className = "target-item";
+          const label = document.createElement("span");
+          label.textContent = `${index + 1}. ${target.name} (${target.lat.toFixed(4)}, ${target.lng.toFixed(4)})`;
+          const weightInput = document.createElement("input");
+          weightInput.type = "number";
+          weightInput.min = "0";
+          weightInput.step = "0.1";
+          weightInput.value = target.weight ?? 1;
+          weightInput.className = "weight-input";
+          weightInput.setAttribute("aria-label", `Peso para ${target.name}`);
+          weightInput.addEventListener("input", (event) => {
+            const value = parseFloat(event.target.value);
+            target.weight = Number.isFinite(value) ? value : null;
+          });
+          item.appendChild(label);
+          item.appendChild(weightInput);
           targetList.appendChild(item);
         });
       }
@@ -297,6 +327,7 @@
           mapTypeControl: false,
         });
         STATE.map = map;
+        STATE.infoWindow = new google.maps.InfoWindow();
 
         STATE.drawingManager = new google.maps.drawing.DrawingManager({
           drawingMode: null,
@@ -339,7 +370,7 @@
             name: `Target ${STATE.targets.length + 1}`,
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
-            weight: null,
+            weight: 1,
           };
           STATE.targets.push(target);
           const marker = new google.maps.Marker({
@@ -448,6 +479,8 @@
           return;
         }
         let painted = 0;
+        const infoWindow = STATE.infoWindow;
+        const targets = STATE.targets;
         features.forEach((feature) => {
           const minutes = feature.properties.time_minutes;
           const hasTime = minutes !== null && minutes !== undefined;
@@ -475,6 +508,44 @@
             },
             radius: getGridResolutionM() * 0.45,
           });
+          if (targets.length > 0) {
+            google.maps.event.addListener(circle, "mouseover", () => {
+              const center = circle.getCenter();
+              const distances = targets.map((target) => {
+                const targetLatLng = new google.maps.LatLng(target.lat, target.lng);
+                const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(
+                  center,
+                  targetLatLng
+                );
+                return {
+                  name: target.name,
+                  distanceKm: distanceMeters / 1000,
+                };
+              });
+              const averageKm =
+                distances.reduce((sum, item) => sum + item.distanceKm, 0) / distances.length;
+              const content = `
+                <div>
+                  <strong>Distancias a puntos de interés</strong>
+                  <ul style="padding-left:16px; margin:6px 0;">
+                    ${distances
+                      .map(
+                        (item) =>
+                          `<li>${item.name}: ${item.distanceKm.toFixed(2)} km</li>`
+                      )
+                      .join("")}
+                  </ul>
+                  <div><strong>Media:</strong> ${averageKm.toFixed(2)} km</div>
+                </div>
+              `;
+              infoWindow.setContent(content);
+              infoWindow.setPosition(center);
+              infoWindow.open(STATE.map);
+            });
+            google.maps.event.addListener(circle, "mouseout", () => {
+              infoWindow.close();
+            });
+          }
           STATE.heatmapOverlay.push(circle);
           if (hasTime) {
             painted += 1;
@@ -494,7 +565,7 @@
       window.initMap = initMap;
     </script>
     <script
-      src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=drawing&callback=initMap"
+      src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=drawing,geometry&callback=initMap"
       async
       defer
     ></script>
