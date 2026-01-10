@@ -496,10 +496,16 @@
           return;
         }
         setStatus("Guardando escenario...");
+        const targetsPayload = STATE.targets.map((target) => ({
+          name: target.name,
+          lat: target.lat,
+          lng: target.lng,
+          weight: target.weight,
+        }));
         const payload = {
           name: document.getElementById("scenario-name").value || "Escenario sin nombre",
           polygon_geojson: polygonToGeoJSON(STATE.polygon),
-          targets: STATE.targets,
+          targets: targetsPayload,
           metric: document.getElementById("metric").value,
           departure_time: document.getElementById("departure-time").value || null,
           grid_resolution_m: getGridResolutionM(),
