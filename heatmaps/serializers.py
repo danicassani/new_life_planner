@@ -75,4 +75,4 @@ class ScenarioDetailSerializer(serializers.ModelSerializer):
 class CellResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = CellResult
-        fields = ("lat", "lng", "time_minutes")
+        fields = ("lat", "lng", "time_minutes", "raw")

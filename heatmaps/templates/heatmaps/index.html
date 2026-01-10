@@ -511,31 +511,34 @@
           if (targets.length > 0) {
             google.maps.event.addListener(circle, "mouseover", () => {
               const center = circle.getCenter();
-              const distances = targets.map((target) => {
-                const targetLatLng = new google.maps.LatLng(target.lat, target.lng);
-                const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(
-                  center,
-                  targetLatLng
-                );
-                return {
-                  name: target.name,
-                  distanceKm: distanceMeters / 1000,
-                };
-              });
-              const averageKm =
-                distances.reduce((sum, item) => sum + item.distanceKm, 0) / distances.length;
+              const minutesValue =
+                minutes !== null && minutes !== undefined ? minutes.toFixed(1) : null;
+              const durations =
+                feature.properties.raw && Array.isArray(feature.properties.raw.durations)
+                  ? feature.properties.raw.durations
+                  : [];
               const content = `
                 <div>
-                  <strong>Distancias a puntos de interés</strong>
+                  <strong>Tiempo estimado en transporte público</strong>
+                  <div style="margin:6px 0;">
+                    ${
+                      minutesValue
+                        ? `${minutesValue} min`
+                        : "Sin tiempos disponibles para esta celda."
+                    }
+                  </div>
                   <ul style="padding-left:16px; margin:6px 0;">
-                    ${distances
-                      .map(
-                        (item) =>
-                          `<li>${item.name}: ${item.distanceKm.toFixed(2)} km</li>`
-                      )
+                    ${targets
+                      .map((item, index) => {
+                        const duration = durations[index];
+                        if (duration === null || duration === undefined) {
+                          return `<li>${item.name}: sin datos</li>`;
+                        }
+                        const minutesLabel = (duration / 60).toFixed(1);
+                        return `<li>${item.name}: ${minutesLabel} min</li>`;
+                      })
                       .join("")}
                   </ul>
-                  <div><strong>Media:</strong> ${averageKm.toFixed(2)} km</div>
                 </div>
               `;
               infoWindow.setContent(content);
@@ -565,7 +568,7 @@
       window.initMap = initMap;
     </script>
     <script
-      src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=drawing,geometry&callback=initMap"
+      src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=drawing&callback=initMap"
       async
       defer
     ></script>
