@@ -141,15 +141,17 @@
         width: 78px;
       }
       .delete-target {
-        background: #ffe5e8;
-        color: #b00020;
-        border: 1px solid #f2b4bb;
-        padding: 6px 8px;
+        background: #f5f5f5;
+        color: #5b5b5b;
+        border: 1px solid #e0e0e0;
+        padding: 6px;
         border-radius: 8px;
-        font-size: 12px;
+        font-size: 14px;
+        line-height: 1;
       }
       .delete-target:hover {
-        background: #fcd3d8;
+        background: #ededed;
+        color: #1f1f1f;
       }
       .map-wrapper {
         min-height: 540px;
@@ -338,7 +340,8 @@
           const deleteButton = document.createElement("button");
           deleteButton.type = "button";
           deleteButton.className = "delete-target";
-          deleteButton.textContent = "Eliminar";
+          deleteButton.textContent = "🗑️";
+          deleteButton.setAttribute("aria-label", `Eliminar ${target.name}`);
           deleteButton.addEventListener("click", () => {
             if (target.marker) {
               target.marker.setMap(null);
