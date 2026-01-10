@@ -108,7 +108,10 @@ class ScenarioResultsView(APIView):
                         "type": "Point",
                         "coordinates": [item["lng"], item["lat"]],
                     },
-                    "properties": {"time_minutes": item["time_minutes"]},
+                    "properties": {
+                        "time_minutes": item["time_minutes"],
+                        "raw": item.get("raw"),
+                    },
                 }
                 for item in serializer.data
             ],

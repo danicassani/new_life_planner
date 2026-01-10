@@ -513,6 +513,10 @@
               const center = circle.getCenter();
               const minutesValue =
                 minutes !== null && minutes !== undefined ? minutes.toFixed(1) : null;
+              const durations =
+                feature.properties.raw && Array.isArray(feature.properties.raw.durations)
+                  ? feature.properties.raw.durations
+                  : [];
               const content = `
                 <div>
                   <strong>Tiempo estimado en transporte público</strong>
@@ -524,7 +528,16 @@
                     }
                   </div>
                   <ul style="padding-left:16px; margin:6px 0;">
-                    ${targets.map((item) => `<li>${item.name}</li>`).join("")}
+                    ${targets
+                      .map((item, index) => {
+                        const duration = durations[index];
+                        if (duration === null || duration === undefined) {
+                          return `<li>${item.name}: sin datos</li>`;
+                        }
+                        const minutesLabel = (duration / 60).toFixed(1);
+                        return `<li>${item.name}: ${minutesLabel} min</li>`;
+                      })
+                      .join("")}
                   </ul>
                 </div>
               `;
