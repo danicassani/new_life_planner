@@ -124,17 +124,32 @@
       }
       .target-item {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 8px;
       }
-      .target-item span {
+      .target-index {
+        font-size: 12px;
+        color: #5b5b5b;
+      }
+      .target-name {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .weight-input {
         width: 78px;
+      }
+      .delete-target {
+        background: #ffe5e8;
+        color: #b00020;
+        border: 1px solid #f2b4bb;
+        padding: 6px 8px;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      .delete-target:hover {
+        background: #fcd3d8;
       }
       .map-wrapper {
         min-height: 540px;
@@ -282,8 +297,33 @@
         STATE.targets.forEach((target, index) => {
           const item = document.createElement("li");
           item.className = "target-item";
-          const label = document.createElement("span");
-          label.textContent = `${index + 1}. ${target.name} (${target.lat.toFixed(4)}, ${target.lng.toFixed(4)})`;
+          const indexLabel = document.createElement("span");
+          indexLabel.className = "target-index";
+          indexLabel.textContent = `${index + 1}.`;
+          const nameInput = document.createElement("input");
+          nameInput.type = "text";
+          nameInput.value = target.name;
+          nameInput.className = "target-name";
+          nameInput.setAttribute("aria-label", `Nombre para ${target.name}`);
+          nameInput.addEventListener("input", (event) => {
+            const rawValue = event.target.value.trim();
+            target.name = rawValue || `Target ${index + 1}`;
+            if (target.marker) {
+              target.marker.setTitle(target.name);
+            }
+          });
+          nameInput.addEventListener("mouseenter", () => {
+            if (!target.marker) return;
+            target.marker.setAnimation(google.maps.Animation.BOUNCE);
+            STATE.map.panTo(target.marker.getPosition());
+            STATE.infoWindow.setContent(`<strong>${target.name}</strong>`);
+            STATE.infoWindow.open(STATE.map, target.marker);
+          });
+          nameInput.addEventListener("mouseleave", () => {
+            if (!target.marker) return;
+            target.marker.setAnimation(null);
+            STATE.infoWindow.close();
+          });
           const weightInput = document.createElement("input");
           weightInput.type = "number";
           weightInput.min = "0";
@@ -295,8 +335,24 @@
             const value = parseFloat(event.target.value);
             target.weight = Number.isFinite(value) ? value : null;
           });
-          item.appendChild(label);
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "delete-target";
+          deleteButton.textContent = "Eliminar";
+          deleteButton.addEventListener("click", () => {
+            if (target.marker) {
+              target.marker.setMap(null);
+            }
+            STATE.targets.splice(index, 1);
+            STATE.targetMarkers.splice(index, 1);
+            updateTargetList();
+            enableRunIfReady();
+            setStatus("Target eliminado.");
+          });
+          item.appendChild(indexLabel);
+          item.appendChild(nameInput);
           item.appendChild(weightInput);
+          item.appendChild(deleteButton);
           targetList.appendChild(item);
         });
       }
@@ -366,8 +422,11 @@
         }
         setStatus("Haz click en el mapa para añadir un target.");
         const listener = STATE.map.addListener("click", (event) => {
+          const defaultName = `Target ${STATE.targets.length + 1}`;
+          const providedName = window.prompt("Nombre del target:", defaultName);
+          const targetName = (providedName || defaultName).trim() || defaultName;
           const target = {
-            name: `Target ${STATE.targets.length + 1}`,
+            name: targetName,
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
             weight: 1,
@@ -376,7 +435,9 @@
           const marker = new google.maps.Marker({
             position: { lat: target.lat, lng: target.lng },
             map: STATE.map,
+            title: target.name,
           });
+          target.marker = marker;
           STATE.targetMarkers.push(marker);
           updateTargetList();
           enableRunIfReady();
