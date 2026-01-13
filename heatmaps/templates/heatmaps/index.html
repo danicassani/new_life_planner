@@ -14,8 +14,9 @@
         color: #1f1f1f;
       }
       main {
-        max-width: 1100px;
-        margin: 32px auto;
+        max-width: 1700px;
+        margin: 24px auto;
+        min-height: calc(100vh - 48px);
         padding: 24px;
         background: #fff;
         border-radius: 16px;
@@ -106,6 +107,11 @@
         background: #e9efff;
         color: #1f57f1;
       }
+      button.secondary.is-active {
+        background: #1f57f1;
+        color: #fff;
+        box-shadow: 0 0 0 3px rgba(31, 87, 241, 0.2);
+      }
       button:disabled {
         opacity: 0.6;
         cursor: not-allowed;
@@ -124,17 +130,34 @@
       }
       .target-item {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: auto minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 8px;
       }
-      .target-item span {
+      .target-index {
+        font-size: 12px;
+        color: #5b5b5b;
+      }
+      .target-name {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .weight-input {
         width: 78px;
+      }
+      .delete-target {
+        background: #f5f5f5;
+        color: #5b5b5b;
+        border: 1px solid #e0e0e0;
+        padding: 6px;
+        border-radius: 8px;
+        font-size: 14px;
+        line-height: 1;
+      }
+      .delete-target:hover {
+        background: #ededed;
+        color: #1f1f1f;
       }
       .map-wrapper {
         min-height: 540px;
@@ -208,8 +231,7 @@
             <label>Métrica</label>
             <select id="metric">
               <option value="MIN">Mínimo (target más cercano)</option>
-              <option value="AVG">Media</option>
-              <option value="WEIGHTED_AVG">Media ponderada</option>
+              <option value="WEIGHTED_AVG" selected>Media ponderada</option>
             </select>
           </div>
           <div class="field">
@@ -224,9 +246,9 @@
               min="0.25"
               max="3"
               step="0.25"
-              value="0.25"
+              value="1"
             />
-            <span id="grid-resolution-value">0.25 km</span>
+            <span id="grid-resolution-value">1 km</span>
           </div>
           <div class="actions">
             <button class="secondary" id="draw-polygon">Dibujar zona</button>
@@ -268,9 +290,16 @@
       const runButton = document.getElementById("run-heatmap");
       const gridResolutionInput = document.getElementById("grid-resolution");
       const gridResolutionValue = document.getElementById("grid-resolution-value");
+      const drawPolygonButton = document.getElementById("draw-polygon");
+      const addTargetButton = document.getElementById("add-target");
 
       function setStatus(message) {
         STATUS.textContent = `Estado: ${message}`;
+      }
+
+      function setActiveAction(action) {
+        drawPolygonButton.classList.toggle("is-active", action === "polygon");
+        addTargetButton.classList.toggle("is-active", action === "target");
       }
 
       function updateTargetList() {
@@ -282,8 +311,33 @@
         STATE.targets.forEach((target, index) => {
           const item = document.createElement("li");
           item.className = "target-item";
-          const label = document.createElement("span");
-          label.textContent = `${index + 1}. ${target.name} (${target.lat.toFixed(4)}, ${target.lng.toFixed(4)})`;
+          const indexLabel = document.createElement("span");
+          indexLabel.className = "target-index";
+          indexLabel.textContent = `${index + 1}.`;
+          const nameInput = document.createElement("input");
+          nameInput.type = "text";
+          nameInput.value = target.name;
+          nameInput.className = "target-name";
+          nameInput.setAttribute("aria-label", `Nombre para ${target.name}`);
+          nameInput.addEventListener("input", (event) => {
+            const rawValue = event.target.value.trim();
+            target.name = rawValue || `Target ${index + 1}`;
+            if (target.marker) {
+              target.marker.setTitle(target.name);
+            }
+          });
+          nameInput.addEventListener("mouseenter", () => {
+            if (!target.marker) return;
+            target.marker.setAnimation(google.maps.Animation.BOUNCE);
+            STATE.map.panTo(target.marker.getPosition());
+            STATE.infoWindow.setContent(`<strong>${target.name}</strong>`);
+            STATE.infoWindow.open(STATE.map, target.marker);
+          });
+          nameInput.addEventListener("mouseleave", () => {
+            if (!target.marker) return;
+            target.marker.setAnimation(null);
+            STATE.infoWindow.close();
+          });
           const weightInput = document.createElement("input");
           weightInput.type = "number";
           weightInput.min = "0";
@@ -295,8 +349,25 @@
             const value = parseFloat(event.target.value);
             target.weight = Number.isFinite(value) ? value : null;
           });
-          item.appendChild(label);
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "delete-target";
+          deleteButton.textContent = "🗑️";
+          deleteButton.setAttribute("aria-label", `Eliminar ${target.name}`);
+          deleteButton.addEventListener("click", () => {
+            if (target.marker) {
+              target.marker.setMap(null);
+            }
+            STATE.targets.splice(index, 1);
+            STATE.targetMarkers.splice(index, 1);
+            updateTargetList();
+            enableRunIfReady();
+            setStatus("Target eliminado.");
+          });
+          item.appendChild(indexLabel);
+          item.appendChild(nameInput);
           item.appendChild(weightInput);
+          item.appendChild(deleteButton);
           targetList.appendChild(item);
         });
       }
@@ -349,6 +420,7 @@
           }
           STATE.polygon = polygon;
           STATE.drawingManager.setDrawingMode(null);
+          setActiveAction(null);
           setStatus("Polígono dibujado.");
           enableRunIfReady();
         });
@@ -357,6 +429,7 @@
       function startDrawingPolygon() {
         if (!STATE.drawingManager) return;
         STATE.drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+        setActiveAction("polygon");
         setStatus("Dibuja el polígono en el mapa.");
       }
 
@@ -364,10 +437,14 @@
         if (STATE.drawingManager) {
           STATE.drawingManager.setDrawingMode(null);
         }
+        setActiveAction("target");
         setStatus("Haz click en el mapa para añadir un target.");
         const listener = STATE.map.addListener("click", (event) => {
+          const defaultName = `Target ${STATE.targets.length + 1}`;
+          const providedName = window.prompt("Nombre del target:", defaultName);
+          const targetName = (providedName || defaultName).trim() || defaultName;
           const target = {
-            name: `Target ${STATE.targets.length + 1}`,
+            name: targetName,
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
             weight: 1,
@@ -376,11 +453,14 @@
           const marker = new google.maps.Marker({
             position: { lat: target.lat, lng: target.lng },
             map: STATE.map,
+            title: target.name,
           });
+          target.marker = marker;
           STATE.targetMarkers.push(marker);
           updateTargetList();
           enableRunIfReady();
           setStatus("Target añadido.");
+          setActiveAction(null);
           google.maps.event.removeListener(listener);
         });
       }
@@ -416,10 +496,16 @@
           return;
         }
         setStatus("Guardando escenario...");
+        const targetsPayload = STATE.targets.map((target) => ({
+          name: target.name,
+          lat: target.lat,
+          lng: target.lng,
+          weight: target.weight,
+        }));
         const payload = {
           name: document.getElementById("scenario-name").value || "Escenario sin nombre",
           polygon_geojson: polygonToGeoJSON(STATE.polygon),
-          targets: STATE.targets,
+          targets: targetsPayload,
           metric: document.getElementById("metric").value,
           departure_time: document.getElementById("departure-time").value || null,
           grid_resolution_m: getGridResolutionM(),
